@@ -1,0 +1,43 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "video.future/future-video-studio",
+  "title": "Future Video Studio",
+  "description": "Create and manage cinematic AI video renders through the Future Video Studio Agent API.",
+  "repository": {
+    "url": "https://github.com/ariadne-coil/fvs-mcp",
+    "source": "github",
+    "id": "ariadne-coil/fvs-mcp"
+  },
+  "websiteUrl": "https://future.video",
+  "icons": [
+    {
+      "src": "https://future.video/visuals/FutureVideoIcon.png",
+      "mimeType": "image/png"
+    }
+  ],
+  "version": "0.1.1",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.future.video/mcp",
+      "headers": [
+        {
+          "name": "X-FVS-Agent-Key",
+          "description": "Optional Future Video Studio Agent API key from Settings > Agent API Access. Omit for Link paid quote mode.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ],
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "future-video-studio-mcp",
+      "version": "0.1.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
