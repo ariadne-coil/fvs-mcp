@@ -4,7 +4,7 @@ version = "0.1.1"
 description = "MCP server for creating Future Video Studio renders through the FVS Agent API."
 readme = "README.md"
 requires-python = ">=3.11"
-license = "AGPL-3.0-or-later"
+license = "MIT"
 authors = [
     { name = "Future Video Studio" }
 ]
@@ -12,7 +12,7 @@ keywords = ["mcp", "model-context-protocol", "ai-video", "video", "agents"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
