@@ -199,6 +199,39 @@ def test_download_final_video_writes_bytes(monkeypatch, tmp_path):
 
     assert output.read_bytes() == b"video-bytes"
     assert result["bytes_written"] == len(b"video-bytes")
+    assert result["overwritten"] is False
+
+
+def test_download_final_video_requires_https(tmp_path):
+    with pytest.raises(client.FVSClientError, match="absolute HTTPS URL"):
+        client.download_final_video(
+            final_video_url="http://signed.example/video.mp4",
+            output_path=tmp_path / "result.mp4",
+        )
+
+
+def test_download_final_video_refuses_existing_file_without_overwrite(monkeypatch, tmp_path):
+    def fake_urlopen(request, timeout):
+        return FakeResponse(b"replacement")
+
+    monkeypatch.setattr(client.urllib.request, "urlopen", fake_urlopen)
+    output = tmp_path / "result.mp4"
+    output.write_bytes(b"existing")
+
+    with pytest.raises(client.FVSClientError, match="already exists"):
+        client.download_final_video(
+            final_video_url="https://signed.example/video.mp4",
+            output_path=output,
+        )
+
+    result = client.download_final_video(
+        final_video_url="https://signed.example/video.mp4",
+        output_path=output,
+        overwrite=True,
+    )
+
+    assert output.read_bytes() == b"replacement"
+    assert result["overwritten"] is True
 
 
 def test_agent_api_key_from_context_reads_secret_header():
@@ -233,6 +266,32 @@ def test_mcp_tool_schema_does_not_expose_timeout_knobs():
     assert "poll_timeout_seconds" not in submit_properties
     assert "request_timeout_seconds" not in paid_properties
     assert "request_timeout_seconds" not in tools["fvs_download_final_video"]["properties"]
+    assert "overwrite" in tools["fvs_download_final_video"]["properties"]
+
+
+def test_download_tool_metadata_describes_side_effects():
+    async def _list_tools():
+        return await server.mcp.list_tools()
+
+    tools = {
+        tool.name: tool
+        for tool in anyio.run(_list_tools)
+    }
+
+    download_tool = tools["fvs_download_final_video"]
+    description = download_tool.description or ""
+    properties = download_tool.inputSchema["properties"]
+
+    assert "writes the response bytes to output_path" in description
+    assert "does not call the FVS Agent API" in description
+    assert "600 seconds" in description
+    assert download_tool.annotations is not None
+    assert download_tool.annotations.readOnlyHint is False
+    assert download_tool.annotations.destructiveHint is True
+    assert download_tool.annotations.openWorldHint is True
+    assert "HTTPS signed final_video_url" in properties["final_video_url"]["description"]
+    assert "Local filesystem path" in properties["output_path"]["description"]
+    assert "Defaults to false" in properties["overwrite"]["description"]
 
 
 def test_example_render_request_omits_sync_timeout_field():

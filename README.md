@@ -35,6 +35,31 @@ account renders.
 - `fvs_download_final_video`: save a completed render from its signed URL
 - `fvs_example_render_request`: return an example scene render payload
 
+## Downloading Final Renders
+
+Use `fvs_download_final_video` only after `fvs_get_render_status` or
+`fvs_get_paid_render_status` returns a `final_video_url` for a completed render.
+If a signed URL has expired, call the relevant status tool again to refresh it.
+
+The download tool:
+
+- performs an unauthenticated HTTPS GET to the signed `final_video_url`
+- writes the video bytes to `output_path` on the MCP server's local filesystem
+- creates missing parent directories
+- refuses to replace an existing file unless `overwrite` is `true`
+- does not require `FVS_AGENT_API_KEY`
+- does not spend wallet credits, create renders, cancel jobs, or modify remote state
+- may take minutes for large videos and uses a 600 second request timeout
+
+Parameters:
+
+- `final_video_url`: an absolute HTTPS signed URL returned by a completed render
+  status response. Do not pass arbitrary or untrusted URLs.
+- `output_path`: a local path visible to the MCP server process, such as
+  `C:/Users/me/Videos/fvs-result.mp4` or `/tmp/fvs-result.mp4`.
+- `overwrite`: defaults to `false`; set it to `true` only when replacing the
+  destination file is intended.
+
 ## Remote MCP Config
 
 Account mode:

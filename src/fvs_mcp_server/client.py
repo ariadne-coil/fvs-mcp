@@ -236,12 +236,21 @@ def download_final_video(
     *,
     final_video_url: str,
     output_path: str | Path,
+    overwrite: bool = False,
     request_timeout_seconds: float = 600.0,
 ) -> dict[str, Any]:
     url = str(final_video_url or "").strip()
     if not url:
         raise FVSClientError("final_video_url is required.")
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme.lower() != "https" or not parsed.netloc:
+        raise FVSClientError("final_video_url must be an absolute HTTPS URL.")
     destination = Path(output_path).expanduser()
+    if destination.exists():
+        if destination.is_dir():
+            raise FVSClientError("output_path points to an existing directory.")
+        if not overwrite:
+            raise FVSClientError("output_path already exists; pass overwrite=true to replace it.")
     destination.parent.mkdir(parents=True, exist_ok=True)
     request = urllib.request.Request(url=url, headers={"User-Agent": USER_AGENT}, method="GET")
     try:
@@ -256,6 +265,7 @@ def download_final_video(
     return {
         "output_path": str(destination),
         "bytes_written": len(data),
+        "overwritten": bool(overwrite),
     }
 
 

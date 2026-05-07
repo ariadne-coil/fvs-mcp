@@ -9,10 +9,12 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any
+from typing import Annotated, Any
 
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import ToolAnnotations
+from pydantic import Field
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
@@ -95,6 +97,22 @@ Billing:
 - Agents can pay the quote with Link, then poll the paid status URL using the claim token.
 """.strip()
 
+FINAL_VIDEO_DOWNLOAD_DESCRIPTION = """
+Download a completed Future Video Studio final render URL to a local file.
+
+Use this only after fvs_get_render_status or fvs_get_paid_render_status returns
+a final_video_url for a completed render. The tool performs an unauthenticated
+HTTPS GET to that signed URL and writes the response bytes to output_path on the
+MCP server's local filesystem. It does not call the FVS Agent API, spend wallet
+credits, require FVS_AGENT_API_KEY, cancel jobs, or modify remote render state.
+
+Side effects and constraints: output_path is a local filesystem path for the MCP
+server process, parent directories are created, existing files are not replaced
+unless overwrite is true, and large videos may take minutes to download. The
+request timeout is 600 seconds. Use a fresh status check to refresh expired
+signed URLs, and do not pass arbitrary or untrusted URLs.
+""".strip()
+
 SERVER_MANIFEST = {
     "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
     "name": "video.future/future-video-studio",
@@ -112,7 +130,7 @@ SERVER_MANIFEST = {
             "mimeType": "image/png",
         }
     ],
-    "version": "0.1.1",
+    "version": "0.1.2",
     "remotes": [
         {
             "type": "streamable-http",
@@ -131,7 +149,7 @@ SERVER_MANIFEST = {
         {
             "registryType": "pypi",
             "identifier": "future-video-studio-mcp",
-            "version": "0.1.1",
+            "version": "0.1.2",
             "transport": {
                 "type": "stdio",
             },
@@ -353,16 +371,55 @@ def fvs_cancel_render(
         return error_response(exc)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Download final video",
+    description=FINAL_VIDEO_DOWNLOAD_DESCRIPTION,
+    annotations=ToolAnnotations(
+        title="Download final video",
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
 def fvs_download_final_video(
-    final_video_url: str,
-    output_path: str,
+    final_video_url: Annotated[
+        str,
+        Field(
+            description=(
+                "HTTPS signed final_video_url returned by a completed "
+                "fvs_get_render_status or fvs_get_paid_render_status response. "
+                "Use a fresh status check if the signed URL has expired."
+            )
+        ),
+    ],
+    output_path: Annotated[
+        str,
+        Field(
+            description=(
+                "Local filesystem path where the MCP server should write the video, "
+                "for example C:/Users/me/Videos/fvs-result.mp4 or /tmp/fvs-result.mp4. "
+                "Parent directories are created. Existing files are refused unless "
+                "overwrite is true."
+            )
+        ),
+    ],
+    overwrite: Annotated[
+        bool,
+        Field(
+            description=(
+                "Set true only when replacing an existing output_path is intended. "
+                "Defaults to false to avoid accidental local file overwrites."
+            )
+        ),
+    ] = False,
 ) -> dict[str, Any]:
-    """Download a completed render from its signed final_video_url."""
+    """Download a completed Future Video Studio final video to a local file."""
     try:
         return download_final_video(
             final_video_url=final_video_url,
             output_path=output_path,
+            overwrite=overwrite,
         )
     except FVSClientError as exc:
         return error_response(exc)
