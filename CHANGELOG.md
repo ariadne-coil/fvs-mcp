@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.5
+
+- Add ChatGPT app widget metadata, submission assets, and review-safe test cases.
+- Add explicit `RenderRequestPayload` and `UploadUrlPayload` schemas so render tools expose a clear required `request` argument.
+- Add A2A endpoints and marketplace-linked account header support.
+- Add MCP Registry and ChatGPT app manifest metadata for the hosted server.
+
 ## 0.1.2
 
 - Add complete MCP annotations and parameter descriptions for `fvs_download_final_video`.
