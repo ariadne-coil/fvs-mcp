@@ -30,10 +30,37 @@ jobs:
         run: python -m twine check dist/*
       - name: Publish distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+      - name: Wait for PyPI release availability
+        run: |
+          python - <<'PY'
+          import json
+          import time
+          import tomllib
+          import urllib.request
+
+          package = "future-video-studio-mcp"
+          version = tomllib.loads(open("pyproject.toml", "rb").read().decode("utf-8"))["project"]["version"]
+          url = f"https://pypi.org/pypi/{package}/json"
+          for attempt in range(30):
+              with urllib.request.urlopen(url, timeout=20) as response:
+                  data = json.load(response)
+              files = data.get("releases", {}).get(version) or []
+              if files:
+                  print(f"PyPI {package} {version} is visible with {len(files)} files.")
+                  break
+              print(f"Waiting for PyPI {package} {version} to become visible, attempt {attempt + 1}/30...")
+              time.sleep(10)
+          else:
+              raise SystemExit(f"PyPI {package} {version} did not become visible in time.")
+          PY
       - name: Install MCP publisher
         run: |
           curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
       - name: Authenticate to MCP Registry
         run: ./mcp-publisher login github-oidc
+      - name: Validate MCP Registry metadata
+        run: ./mcp-publisher validate server.json
       - name: Publish server to MCP Registry
         run: ./mcp-publisher publish
