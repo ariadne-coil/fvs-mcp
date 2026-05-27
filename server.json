@@ -15,7 +15,13 @@
       "mimeType": "image/png"
     }
   ],
-  "version": "0.1.2",
+  "version": "0.1.5",
+  "chatgptApp": {
+    "connectorUrl": "https://mcp.future.video/mcp",
+    "widgetResource": "ui://future-video-studio/render-console-v1.html",
+    "manifestUrl": "https://mcp.future.video/chatgpt-app.json",
+    "description": "ChatGPT app widget for creating and monitoring Future Video Studio renders."
+  },
   "remotes": [
     {
       "type": "streamable-http",
@@ -26,6 +32,36 @@
           "description": "Optional Future Video Studio Agent API key from Settings > Agent API Access. Omit for Link paid quote mode.",
           "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "X-FVS-Billing-Mode",
+          "description": "Optional billing mode: account-wallet, marketplace-linked-account, or pay-per-render.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "X-FVS-Marketplace-Account",
+          "description": "Optional linked marketplace account identifier for enterprise procurement flows.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "X-FVS-Marketplace-Entitlement",
+          "description": "Optional marketplace entitlement identifier paired with X-FVS-Marketplace-Account.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "X-FVS-Marketplace-Timestamp",
+          "description": "Optional Unix timestamp used in marketplace signature verification.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "X-FVS-Marketplace-Signature",
+          "description": "Optional HMAC-SHA256 signature from the marketplace account-linking gateway.",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }
@@ -34,7 +70,7 @@
     {
       "registryType": "pypi",
       "identifier": "future-video-studio-mcp",
-      "version": "0.1.2",
+      "version": "0.1.5",
       "transport": {
         "type": "stdio"
       }

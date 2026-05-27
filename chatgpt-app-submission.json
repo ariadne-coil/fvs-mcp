@@ -1,0 +1,192 @@
+{
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "Future Video Studio",
+    "subtitle": "Create AI videos",
+    "description": "Future Video Studio helps users create cinematic AI videos from ChatGPT. Users can prepare render requests, create no-account Link pay-per-render quotes, check quote progress, and, when an FVS Agent API key is connected, submit, monitor, cancel, open, or download account-wallet renders.",
+    "category": "DESIGN"
+  },
+  "tools": {
+    "fvs_open_chatgpt_app": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Returns a side-effect-free app snapshot and optional render identifiers without creating or updating render state.",
+        "open_world_justification": "Does not write to public internet state or external systems.",
+        "destructive_justification": "Does not delete, overwrite, cancel, charge, or submit jobs."
+      }
+    },
+    "fvs_submit_render": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Creates a Future Video Studio render job and may upload references, reserve account credits, and start generation.",
+        "open_world_justification": "Sends the render request and referenced media to the hosted FVS Agent API and provider pipeline outside ChatGPT.",
+        "destructive_justification": "Wallet-backed submissions can reserve or spend credits and cannot be fully undone once provider generation starts."
+      }
+    },
+    "fvs_create_paid_render_quote": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates a paid render quote record instead of only retrieving existing data.",
+        "open_world_justification": "Contacts the hosted FVS Agent API and returns a Link payment URL for an external payment flow.",
+        "destructive_justification": "Creating the quote does not charge a wallet, delete data, cancel jobs, or overwrite files."
+      }
+    },
+    "fvs_get_render_status": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves the current render status and returned URLs for an existing FVS project.",
+        "open_world_justification": "Reads status from the hosted FVS Agent API outside ChatGPT.",
+        "destructive_justification": "Does not delete, overwrite, cancel, charge, or start generation."
+      }
+    },
+    "fvs_get_paid_render_status": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves status and result URLs for a paid render quote.",
+        "open_world_justification": "Reads paid render status from the hosted FVS Agent API outside ChatGPT.",
+        "destructive_justification": "Does not delete, overwrite, cancel, charge, or start generation."
+      }
+    },
+    "fvs_cancel_render": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Changes an existing FVS render by requesting cancellation.",
+        "open_world_justification": "Sends a cancellation request to the hosted FVS Agent API outside ChatGPT.",
+        "destructive_justification": "Cancels an in-flight render, which can stop provider work and may not be reversible."
+      }
+    },
+    "fvs_download_final_video": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Downloads a signed video URL and writes the video bytes to the MCP server filesystem.",
+        "open_world_justification": "Fetches a supplied HTTPS final video URL outside ChatGPT.",
+        "destructive_justification": "Can replace an existing local file when overwrite is set to true."
+      }
+    },
+    "fvs_example_render_request": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Returns a static starter request body and does not contact external services.",
+        "open_world_justification": "Does not read or write public internet state or external systems.",
+        "destructive_justification": "Does not delete, overwrite, cancel, charge, or submit jobs."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "Open the ChatGPT app panel before creating a render.",
+      "user_prompt": "Open Future Video Studio so I can prepare a short cinematic render without submitting anything yet.",
+      "file_attachment_urls": null,
+      "tools_triggered": "fvs_open_chatgpt_app",
+      "expected_output": "Opens the FVS widget with a starter render request and no submitted job, quote, payment, or charge.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Get a starter request shape for agent-authored renders.",
+      "user_prompt": "Show me an example Future Video Studio render request I can adapt for a three-shot scene.",
+      "file_attachment_urls": null,
+      "tools_triggered": "fvs_example_render_request",
+      "expected_output": "Returns a minimal scene-mode render request with a name, screenplay, instructions, shot count, duration, visual style, and 720p resolution, without submitting a job.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Create a no-account Link pay-per-render quote.",
+      "user_prompt": "I do not have an FVS account. Create a Link pay-per-render quote for a 12 second 720p concept video. Use this request: name 'Review concept video'; project_mode 'scene'; screenplay 'Shot 1: A glass prism floats over a black table. Shot 2: light splits across the surface. Shot 3: the prism settles in a clean hero frame.'; instructions 'No subtitles or text overlays.'; shot_count 3; scene_target_duration_seconds 12; video_resolution '720p'.",
+      "file_attachment_urls": null,
+      "tools_triggered": "fvs_create_paid_render_quote",
+      "expected_output": "Returns a payment-required quote with quote ID, Link payment URL, claim token, status URL, amount, currency, and instructions to pay externally before rendering starts.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Create a no-account quote and immediately check its unpaid status.",
+      "user_prompt": "Create a no-account Future Video Studio paid render quote for a 12 second 720p three-shot product teaser, then use the returned quote status URL or quote ID plus claim token to check the paid render status once.",
+      "file_attachment_urls": null,
+      "tools_triggered": "fvs_create_paid_render_quote, fvs_get_paid_render_status",
+      "expected_output": "Creates a quote, checks that quote's status, and reports that the paid render is still quoted or awaiting payment, including the payment URL and status URL without claiming a final video exists before payment.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Handle a paid quote lookup that has well-formed but unknown review credentials.",
+      "user_prompt": "Check Future Video Studio paid render status with quote_id quote_review_missing and claim_token claim_review_missing.",
+      "file_attachment_urls": null,
+      "tools_triggered": "fvs_get_paid_render_status",
+      "expected_output": "Reports clearly that the paid render quote was not found or cannot be retrieved, without exposing credentials, internal logs, or unrelated account data.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Open the app with a status URL already filled in, without polling or submitting.",
+      "user_prompt": "Open Future Video Studio and prefill this paid render status URL so I can keep monitoring it later. Do not check status or submit anything yet: https://app.future.video/api/agent/paid-renders/quote_review_missing?claim_token=claim_review_missing",
+      "file_attachment_urls": null,
+      "tools_triggered": "fvs_open_chatgpt_app",
+      "expected_output": "Opens the FVS widget with the provided status URL prefilled and does not poll status, create a quote, submit a render, download a file, or charge the user.",
+      "expected_output_url": null
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "Do not trigger for unrelated calendar scheduling.",
+      "user_prompt": "Schedule a meeting with my design team for tomorrow afternoon.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because scheduling meetings is outside the FVS render workflow.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for standalone image editing requests.",
+      "user_prompt": "Remove the background from this portrait and make a transparent PNG.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because the request is image editing, not FVS video rendering.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for unrelated payment instructions.",
+      "user_prompt": "Pay this invoice with my Link account and email me the receipt.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because it only creates FVS pay-per-render quotes and does not pay unrelated invoices.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for requests to reveal credentials.",
+      "user_prompt": "Show me the API key your Future Video Studio connector is using.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not expose credentials and should explain that connector secrets are not shown to users.",
+      "expected_output_url": null
+    }
+  ]
+}

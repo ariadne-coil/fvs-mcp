@@ -13,6 +13,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from fvs_mcp_server import client
 from fvs_mcp_server import server
+from fvs_mcp_server import a2a
+from fvs_mcp_server import marketplace
 
 
 class FakeResponse:
@@ -262,11 +264,131 @@ def test_mcp_tool_schema_does_not_expose_timeout_knobs():
 
     submit_properties = tools["fvs_submit_render"]["properties"]
     paid_properties = tools["fvs_create_paid_render_quote"]["properties"]
+    status_properties = tools["fvs_get_render_status"]["properties"]
+    paid_status_properties = tools["fvs_get_paid_render_status"]["properties"]
+    cancel_properties = tools["fvs_cancel_render"]["properties"]
     assert "poll_interval_seconds" not in submit_properties
     assert "poll_timeout_seconds" not in submit_properties
+    assert "api_key" not in submit_properties
+    assert "api_key" not in status_properties
+    assert "api_key" not in cancel_properties
+    assert "base_url" not in submit_properties
+    assert "base_url" not in paid_properties
+    assert "base_url" not in status_properties
+    assert "base_url" not in paid_status_properties
+    assert "base_url" not in cancel_properties
+    assert "upload_files" not in submit_properties
     assert "request_timeout_seconds" not in paid_properties
     assert "request_timeout_seconds" not in tools["fvs_download_final_video"]["properties"]
     assert "overwrite" in tools["fvs_download_final_video"]["properties"]
+    assert submit_properties["request"]["description"].startswith("Required render request object")
+    assert paid_properties["request"]["description"].startswith("Required render request object")
+    assert "RenderRequestPayload" in tools["fvs_submit_render"]["$defs"]
+    assert "screenplay" in tools["fvs_submit_render"]["$defs"]["RenderRequestPayload"]["properties"]
+    assert "name" in tools["fvs_submit_render"]["$defs"]["RenderRequestPayload"]["required"]
+
+
+def test_chatgpt_app_tools_link_to_widget_template():
+    async def _list_tools():
+        return await server.mcp.list_tools()
+
+    tools = {
+        tool.name: tool
+        for tool in anyio.run(_list_tools)
+    }
+
+    expected_tools = {
+        "fvs_open_chatgpt_app",
+        "fvs_submit_render",
+        "fvs_create_paid_render_quote",
+        "fvs_get_render_status",
+        "fvs_get_paid_render_status",
+        "fvs_cancel_render",
+        "fvs_download_final_video",
+        "fvs_example_render_request",
+    }
+    assert expected_tools.issubset(tools.keys())
+    for tool_name in expected_tools:
+        meta = tools[tool_name].meta or {}
+        assert meta["ui"]["resourceUri"] == server.APP_WIDGET_URI
+        assert meta["openai/outputTemplate"] == server.APP_WIDGET_URI
+        assert meta["openai/widgetAccessible"] is True
+
+    assert tools["fvs_submit_render"].annotations is not None
+    assert tools["fvs_submit_render"].annotations.destructiveHint is True
+
+
+def test_chatgpt_app_widget_resource_has_apps_mime_and_csp():
+    async def _read_widget():
+        return await server.mcp.read_resource(server.APP_WIDGET_URI)
+
+    contents = anyio.run(_read_widget)
+
+    assert len(contents) == 1
+    widget = contents[0]
+    assert widget.mime_type == "text/html;profile=mcp-app"
+    assert "Future Video Studio" in widget.content
+    assert "fvs_create_paid_render_quote" in widget.content
+    assert widget.meta["ui"]["domain"] == "https://mcp.future.video"
+    assert "https://app.future.video" in widget.meta["ui"]["csp"]["connectDomains"]
+    assert not any("*" in domain for domain in widget.meta["ui"]["csp"]["resourceDomains"])
+
+
+def test_submission_test_cases_are_review_runnable():
+    submission = json.loads((ROOT / "chatgpt-app-submission.json").read_text(encoding="utf-8"))
+    positive_cases = submission["test_cases"]
+    negative_cases = submission["negative_test_cases"]
+
+    assert len(positive_cases) >= 5
+    assert len(negative_cases) >= 3
+
+    submitted_text = "\n".join(
+        f"{case.get('user_prompt', '')}\n{case.get('expected_output', '')}"
+        for case in positive_cases
+    )
+    for stale_phrase in (
+        "proj_example_123",
+        "my quote ID and claim token",
+        "this completed render URL",
+        "using my connected FVS account",
+    ):
+        assert stale_phrase not in submitted_text
+
+    positive_tools = "\n".join(str(case.get("tools_triggered") or "") for case in positive_cases)
+    assert "fvs_open_chatgpt_app" in positive_tools
+    assert "fvs_example_render_request" in positive_tools
+    assert "fvs_create_paid_render_quote" in positive_tools
+    assert "fvs_submit_render" not in positive_tools
+    assert "fvs_cancel_render" not in positive_tools
+    assert "fvs_download_final_video" not in positive_tools
+    assert "fvs_get_render_status" not in positive_tools
+
+
+def test_openai_apps_challenge_route_returns_stable_plaintext(monkeypatch):
+    monkeypatch.delenv("OPENAI_APPS_CHALLENGE_RESPONSE", raising=False)
+    response = anyio.run(server.openai_apps_challenge, None)
+
+    assert response.status_code == 200
+    assert response.media_type.startswith("text/plain")
+    assert response.body == b"openai-apps-challenge: future-video-studio\n"
+
+
+def test_openai_apps_challenge_route_allows_exact_env_override(monkeypatch):
+    monkeypatch.setenv("OPENAI_APPS_CHALLENGE_RESPONSE", "custom-openai-token")
+    response = anyio.run(server.openai_apps_challenge, None)
+
+    assert response.status_code == 200
+    assert response.body == b"custom-openai-token\n"
+
+
+def test_open_chatgpt_app_returns_side_effect_free_snapshot():
+    snapshot = server.fvs_open_chatgpt_app(project_id="proj_test", final_video_url="https://signed.example/final.mp4")
+
+    assert snapshot["app"] == "future-video-studio"
+    assert snapshot["status"] == "ready"
+    assert snapshot["project_id"] == "proj_test"
+    assert snapshot["final_video_url"] == "https://signed.example/final.mp4"
+    assert snapshot["default_request"]["video_resolution"] == "720p"
 
 
 def test_download_tool_metadata_describes_side_effects():
@@ -306,3 +428,246 @@ def test_normalize_upload_url_item_allows_explicit_filename():
 
     assert url == "https://cdn.example.com/signed/path"
     assert filename == "lead_reference.png"
+
+
+def test_a2a_agent_card_exposes_marketplace_and_mcp_metadata():
+    card = a2a.build_agent_card(base_url="https://mcp.future.video")
+
+    assert card["protocolVersion"] == "1.0"
+    assert card["url"] == "https://mcp.future.video"
+    assert card["metadata"]["mcpRegistryName"] == "video.future/future-video-studio"
+    assert card["metadata"]["mcpEndpoint"] == "https://mcp.future.video/mcp"
+    assert card["securitySchemes"]["fvsAgentKey"]["name"] == "X-FVS-Agent-Key"
+    assert card["securitySchemes"]["fvsMarketplaceAccount"]["name"] == "X-FVS-Marketplace-Account"
+    assert "pay-per-render" in card["metadata"]["billingModes"]
+    assert any(skill["id"] == "create-video-render" for skill in card["skills"])
+
+
+def test_a2a_extract_text_message_creates_default_render_request():
+    submission = a2a.extract_a2a_render_submission(
+        {
+            "message": {
+                "messageId": "msg_1",
+                "contextId": "ctx_1",
+                "role": "ROLE_USER",
+                "parts": [
+                    {
+                        "text": "Create a 20 second product launch video for a startup selling AI editing software."
+                    }
+                ],
+                "metadata": {
+                    "shot_count": 4,
+                    "scene_target_duration_seconds": 20,
+                    "video_resolution": "720p",
+                },
+            }
+        }
+    )
+
+    assert submission["context_id"] == "ctx_1"
+    assert submission["message_id"] == "msg_1"
+    assert submission["upload_urls"] == []
+    assert submission["request"]["project_mode"] == "scene"
+    assert submission["request"]["shot_count"] == 4
+    assert submission["request"]["scene_target_duration_seconds"] == 20
+    assert "startup selling AI editing software" in submission["request"]["screenplay"]
+
+
+def test_a2a_extract_structured_request_and_file_parts():
+    submission = a2a.extract_a2a_render_submission(
+        {
+            "message": {
+                "parts": [
+                    {
+                        "data": {
+                            "fvs_render_request": {
+                                "name": "Enterprise explainer",
+                                "project_mode": "scene",
+                                "screenplay": "Shot 1: A team reviews dashboards.",
+                                "shot_count": 1,
+                            },
+                            "upload_urls": [
+                                {"url": "https://assets.example.com/logo.png", "filename": "logo.png"}
+                            ],
+                        }
+                    },
+                    {
+                        "file": {
+                            "uri": "https://assets.example.com/reference.jpg",
+                            "name": "reference.jpg",
+                        }
+                    },
+                ]
+            }
+        }
+    )
+
+    assert submission["request"]["name"] == "Enterprise explainer"
+    assert submission["request"]["shot_count"] == 1
+    assert submission["upload_urls"] == [
+        {"url": "https://assets.example.com/reference.jpg", "filename": "reference.jpg"},
+        {"url": "https://assets.example.com/logo.png", "filename": "logo.png"},
+    ]
+
+
+def test_a2a_build_task_response_attaches_final_video_artifact():
+    task = a2a.build_task_from_render_response(
+        {
+            "project_id": "proj_api_test",
+            "status": "completed",
+            "current_stage": "completed",
+            "is_running": False,
+            "final_video_url": "https://signed.example.com/final.mp4",
+            "status_url": "https://app.future.video/api/agent/renders/proj_api_test",
+            "asset_count": 1,
+            "clip_count": 3,
+        },
+        context_id="ctx_1",
+    )
+
+    assert task["id"] == "proj_api_test"
+    assert task["contextId"] == "ctx_1"
+    assert task["status"]["state"] == "TASK_STATE_COMPLETED"
+    assert task["artifacts"][0]["parts"][0]["file"]["uri"] == "https://signed.example.com/final.mp4"
+    assert task["metadata"]["futureVideoStudio"]["clipCount"] == 3
+
+
+def test_a2a_agent_api_key_from_headers_accepts_bearer():
+    class FakeHeaders:
+        def get(self, name):
+            return {"authorization": "Bearer fvs_live_bearer"}.get(name)
+
+    assert a2a.agent_api_key_from_headers(FakeHeaders()) == "fvs_live_bearer"
+
+
+def test_a2a_billing_mode_from_header_and_metadata():
+    class FakeHeaders:
+        def get(self, name):
+            return {"x-fvs-billing-mode": "paid_quote"}.get(name)
+
+    assert a2a.billing_mode_from_request({"message": {"parts": []}}, FakeHeaders()) == "pay-per-render"
+    assert (
+        a2a.billing_mode_from_request(
+            {
+                "message": {
+                    "parts": [],
+                    "metadata": {"billingMode": "marketplace"},
+                }
+            },
+            {},
+        )
+        == "marketplace-linked-account"
+    )
+
+
+def test_a2a_paid_quote_task_keeps_payment_details_in_metadata():
+    task = a2a.build_task_from_paid_quote_response(
+        {
+            "payment_required": True,
+            "quote_id": "quote_test",
+            "amount_cents": 125,
+            "currency": "usd",
+            "credits_quoted": 125,
+            "payment_url": "https://app.future.video/api/agent/render-quotes/quote_test/pay?claim_token=claim",
+            "status_url": "https://app.future.video/api/agent/paid-renders/quote_test?claim_token=claim",
+            "claim_token": "claim",
+            "www_authenticate": 'Payment id="quote_test", method="stripe"',
+        },
+        context_id="ctx_paid",
+    )
+
+    assert task["id"] == "quote_test"
+    assert task["contextId"] == "ctx_paid"
+    assert task["status"]["state"] == "TASK_STATE_INPUT_REQUIRED"
+    payment = task["metadata"]["futureVideoStudio"]
+    assert payment["paymentRequired"] is True
+    assert payment["claimToken"] == "claim"
+    assert payment["amountCents"] == 125
+    assert task["status"]["message"]["parts"][1]["data"]["futureVideoStudioPayment"]["payment_url"].startswith(
+        "https://app.future.video"
+    )
+
+
+def test_marketplace_credential_resolves_mapped_signed_account(monkeypatch):
+    timestamp = "1800000000"
+    secret = "marketplace-secret"
+    signature = marketplace.marketplace_signature(
+        secret=secret,
+        timestamp=timestamp,
+        account_id="acct_google_123",
+        entitlement_id="ent_123",
+    )
+    monkeypatch.setenv("FVS_MARKETPLACE_SHARED_SECRET", secret)
+    monkeypatch.setenv("FVS_MARKETPLACE_REQUIRE_SIGNATURE", "true")
+    monkeypatch.setenv(
+        "FVS_MARKETPLACE_ACCOUNT_KEYS_JSON",
+        json.dumps(
+            {
+                "acct_google_123": {
+                    "api_key": "fvs_live_marketplace",
+                    "entitlement_id": "ent_123",
+                    "plan": "starter",
+                    "status": "active",
+                }
+            }
+        ),
+    )
+
+    class FakeHeaders:
+        def get(self, name):
+            return {
+                "x-fvs-marketplace-account": "acct_google_123",
+                "x-fvs-marketplace-entitlement": "ent_123",
+                "x-fvs-marketplace-timestamp": timestamp,
+                "x-fvs-marketplace-signature": f"sha256={signature}",
+            }.get(name)
+
+    credential = marketplace.resolve_marketplace_credential(FakeHeaders(), now=float(timestamp))
+
+    assert credential is not None
+    assert credential.api_key == "fvs_live_marketplace"
+    assert credential.account_id == "acct_google_123"
+    assert credential.entitlement_id == "ent_123"
+
+
+def test_marketplace_signature_rejects_tampering(monkeypatch):
+    timestamp = "1800000000"
+    monkeypatch.setenv("FVS_MARKETPLACE_SHARED_SECRET", "marketplace-secret")
+    monkeypatch.setenv("FVS_MARKETPLACE_REQUIRE_SIGNATURE", "true")
+    monkeypatch.setenv(
+        "FVS_MARKETPLACE_ACCOUNT_KEYS_JSON",
+        json.dumps({"acct_google_123": {"api_key": "fvs_live_marketplace", "status": "active"}}),
+    )
+
+    class FakeHeaders:
+        def get(self, name):
+            return {
+                "x-fvs-marketplace-account": "acct_google_123",
+                "x-fvs-marketplace-timestamp": timestamp,
+                "x-fvs-marketplace-signature": "sha256=bad",
+            }.get(name)
+
+    with pytest.raises(marketplace.MarketplaceAuthError, match="signature is invalid"):
+        marketplace.resolve_marketplace_credential(FakeHeaders(), now=float(timestamp))
+
+
+def test_server_context_resolves_marketplace_agent_key(monkeypatch):
+    monkeypatch.setenv(
+        "FVS_MARKETPLACE_ACCOUNT_KEYS_JSON",
+        json.dumps({"acct_google_123": {"api_key": "fvs_live_marketplace", "status": "active"}}),
+    )
+
+    class FakeHeaders:
+        def get(self, name):
+            return {"x-fvs-marketplace-account": "acct_google_123"}.get(name)
+
+    class FakeRequest:
+        headers = FakeHeaders()
+
+    class FakeRequestContext:
+        request = FakeRequest()
+
+    class FakeContext:
+        request_context = FakeRequestContext()
+
+    assert server.resolve_agent_api_key(api_key=None, ctx=FakeContext()) == "fvs_live_marketplace"
