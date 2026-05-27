@@ -20,6 +20,14 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+      - name: Check MCP Registry domain credentials
+        env:
+          MCP_REGISTRY_PRIVATE_KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
+        run: |
+          if [ -z "$MCP_REGISTRY_PRIVATE_KEY" ]; then
+            echo "::error::Set MCP_REGISTRY_PRIVATE_KEY to the Ed25519 private key authorized by https://future.video/.well-known/mcp-registry-auth before publishing a release."
+            exit 1
+          fi
       - name: Install build tools
         run: python -m pip install --upgrade build twine ".[dev]"
       - name: Run tests
@@ -58,9 +66,11 @@ jobs:
       - name: Install MCP publisher
         run: |
           curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
-      - name: Authenticate to MCP Registry
-        run: ./mcp-publisher login github-oidc
       - name: Validate MCP Registry metadata
         run: ./mcp-publisher validate server.json
+      - name: Authenticate to MCP Registry
+        env:
+          MCP_REGISTRY_PRIVATE_KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
+        run: ./mcp-publisher login http --domain future.video --private-key "$MCP_REGISTRY_PRIVATE_KEY"
       - name: Publish server to MCP Registry
         run: ./mcp-publisher publish
