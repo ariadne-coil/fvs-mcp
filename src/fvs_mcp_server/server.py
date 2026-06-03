@@ -10,7 +10,7 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
@@ -286,9 +286,13 @@ class RenderAssetPayload(BaseModel):
         default=None,
         description="Short label for the asset, such as Character, Logo, or Reference.",
     )
-    role: str | None = Field(
+    purpose: str | None = Field(
         default=None,
-        description="Optional role describing how the asset should guide the render.",
+        description=(
+            "Optional guidance for how this asset should be used, such as "
+            "character_reference, location_reference, logo_reference, style_reference, "
+            "music_reference, or document_reference."
+        ),
     )
 
 
@@ -296,7 +300,7 @@ class RenderRequestPayload(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     name: str = Field(description="Required project name for the Future Video Studio render.")
-    project_mode: str = Field(
+    project_mode: Literal["scene", "music", "custom"] = Field(
         default="scene",
         description="Render mode: scene for cinematic scenes, music for music-first videos, or custom for advanced requests.",
     )

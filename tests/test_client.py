@@ -311,8 +311,14 @@ def test_mcp_tool_schema_does_not_expose_timeout_knobs():
     assert submit_properties["request"]["description"].startswith("Required render request object")
     assert paid_properties["request"]["description"].startswith("Required render request object")
     assert "RenderRequestPayload" in tools["fvs_submit_render"]["$defs"]
-    assert "screenplay" in tools["fvs_submit_render"]["$defs"]["RenderRequestPayload"]["properties"]
-    assert "name" in tools["fvs_submit_render"]["$defs"]["RenderRequestPayload"]["required"]
+    submit_defs = tools["fvs_submit_render"]["$defs"]
+    request_properties = submit_defs["RenderRequestPayload"]["properties"]
+    asset_properties = submit_defs["RenderAssetPayload"]["properties"]
+    assert "screenplay" in request_properties
+    assert "name" in submit_defs["RenderRequestPayload"]["required"]
+    assert request_properties["project_mode"]["enum"] == ["scene", "music", "custom"]
+    assert "role" not in asset_properties
+    assert "purpose" in asset_properties
 
 
 def test_chatgpt_app_tools_link_to_widget_template():
