@@ -20,6 +20,14 @@ DEFAULT_REQUEST_TIMEOUT_SECONDS = 120.0
 API_KEY_ENV = "FVS_AGENT_API_KEY"
 BASE_URL_ENV = "FVS_AGENT_BASE_URL"
 USER_AGENT = "future-video-studio-mcp/0.1.0"
+SENSITIVE_QUERY_KEYS = {
+    "api_key",
+    "claim_token",
+    "key",
+    "secret",
+    "signature",
+    "token",
+}
 
 
 @dataclass(frozen=True)
@@ -312,6 +320,26 @@ def resolve_paid_status_url(
     return f"{agent_base_url}/paid-renders/{normalized_quote_id}?{query}"
 
 
+def redact_url(url: str) -> str:
+    parsed = urllib.parse.urlsplit(str(url or ""))
+    if not parsed.query:
+        return str(url)
+    pairs = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+    redacted_pairs = [
+        (key, "[redacted]" if key.lower() in SENSITIVE_QUERY_KEYS else value)
+        for key, value in pairs
+    ]
+    return urllib.parse.urlunsplit(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            urllib.parse.urlencode(redacted_pairs),
+            parsed.fragment,
+        )
+    )
+
+
 def validate_asset_filenames(payload: Mapping[str, Any], file_paths: Sequence[Path]) -> None:
     assets = payload.get("assets")
     if not assets:
@@ -403,9 +431,9 @@ def request_json_api(
                 },
             )
         detail = extract_error_detail(raw_error)
-        raise FVSClientError(f"HTTP {exc.code} from {url}: {detail}") from exc
+        raise FVSClientError(f"HTTP {exc.code} from {redact_url(url)}: {detail}") from exc
     except urllib.error.URLError as exc:
-        raise FVSClientError(f"Network error while calling {url}: {exc.reason}") from exc
+        raise FVSClientError(f"Network error while calling {redact_url(url)}: {exc.reason}") from exc
     return parse_json_response(raw, url=url)
 
 
@@ -413,9 +441,9 @@ def parse_json_response(raw: bytes, *, url: str, extra: Mapping[str, Any] | None
     try:
         parsed = json.loads(raw.decode("utf-8"))
     except json.JSONDecodeError as exc:
-        raise FVSClientError(f"Non-JSON response from {url}.") from exc
+        raise FVSClientError(f"Non-JSON response from {redact_url(url)}.") from exc
     if not isinstance(parsed, dict):
-        raise FVSClientError(f"Unexpected non-object JSON response from {url}.")
+        raise FVSClientError(f"Unexpected non-object JSON response from {redact_url(url)}.")
     if extra:
         return {**dict(extra), **parsed}
     return parsed

@@ -188,6 +188,33 @@ def test_get_paid_status_uses_claim_token_url(monkeypatch):
     assert captured["method"] == "GET"
 
 
+def test_paid_status_error_redacts_claim_token(monkeypatch):
+    def fake_urlopen(request, timeout):
+        body = json.dumps({"detail": "Paid render quote not found"}).encode("utf-8")
+        raise client.urllib.error.HTTPError(
+            request.full_url,
+            404,
+            "Not Found",
+            {},
+            io.BytesIO(body),
+        )
+
+    monkeypatch.setattr(client.urllib.request, "urlopen", fake_urlopen)
+
+    with pytest.raises(client.FVSClientError) as exc_info:
+        client.get_paid_render_status(
+            quote_id="quote_review_missing",
+            claim_token="claim_review_missing",
+            base_url="https://app.future.video",
+        )
+
+    error = str(exc_info.value)
+    assert "Paid render quote not found" in error
+    assert "quote_review_missing" in error
+    assert "claim_review_missing" not in error
+    assert "claim_token=%5Bredacted%5D" in error
+
+
 def test_download_final_video_writes_bytes(monkeypatch, tmp_path):
     def fake_urlopen(request, timeout):
         return FakeResponse(b"video-bytes")
@@ -362,6 +389,7 @@ def test_submission_test_cases_are_review_runnable():
     assert "fvs_cancel_render" not in positive_tools
     assert "fvs_download_final_video" not in positive_tools
     assert "fvs_get_render_status" not in positive_tools
+    assert "redacts the claim token value" in submitted_text
 
 
 def test_openai_apps_challenge_route_returns_stable_plaintext(monkeypatch):
