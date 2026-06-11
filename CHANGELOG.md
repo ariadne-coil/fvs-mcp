@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.6
+
+- Align status and download MCP annotations with actual behavior for ChatGPT app review.
+- Assert every reviewer-visible tool annotation in tests and submission metadata.
+
 ## 0.1.5
 
 - Add ChatGPT app widget metadata, submission assets, and review-safe test cases.

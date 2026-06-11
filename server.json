@@ -15,7 +15,7 @@
       "mimeType": "image/png"
     }
   ],
-  "version": "0.1.5",
+  "version": "0.1.6",
   "chatgptApp": {
     "connectorUrl": "https://mcp.future.video/mcp",
     "widgetResource": "ui://future-video-studio/render-console-v1.html",
@@ -70,7 +70,7 @@
     {
       "registryType": "pypi",
       "identifier": "future-video-studio-mcp",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "transport": {
         "type": "stdio"
       }

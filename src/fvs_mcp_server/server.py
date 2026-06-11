@@ -194,7 +194,7 @@ SERVER_MANIFEST = {
             "mimeType": "image/png",
         }
     ],
-    "version": "0.1.5",
+    "version": "0.1.6",
     "chatgptApp": {
         "connectorUrl": "https://mcp.future.video/mcp",
         "widgetResource": APP_WIDGET_URI,
@@ -249,7 +249,7 @@ SERVER_MANIFEST = {
         {
             "registryType": "pypi",
             "identifier": "future-video-studio-mcp",
-            "version": "0.1.5",
+            "version": "0.1.6",
             "transport": {
                 "type": "stdio",
             },
@@ -863,7 +863,7 @@ def fvs_create_paid_render_quote(
         readOnlyHint=True,
         destructiveHint=False,
         idempotentHint=True,
-        openWorldHint=True,
+        openWorldHint=False,
     ),
     meta=app_tool_meta(invoking="Checking render...", invoked="Status updated"),
 )
@@ -895,7 +895,7 @@ def fvs_get_render_status(
         readOnlyHint=True,
         destructiveHint=False,
         idempotentHint=True,
-        openWorldHint=True,
+        openWorldHint=False,
     ),
     meta=app_tool_meta(invoking="Checking paid render...", invoked="Status updated"),
 )
@@ -959,7 +959,7 @@ def fvs_cancel_render(
         readOnlyHint=False,
         destructiveHint=True,
         idempotentHint=False,
-        openWorldHint=True,
+        openWorldHint=False,
     ),
     meta=app_tool_meta(invoking="Downloading video...", invoked="Video downloaded"),
 )

@@ -17,6 +17,50 @@ from fvs_mcp_server import a2a
 from fvs_mcp_server import marketplace
 
 
+EXPECTED_TOOL_ANNOTATIONS = {
+    "fvs_open_chatgpt_app": {
+        "readOnlyHint": True,
+        "openWorldHint": False,
+        "destructiveHint": False,
+    },
+    "fvs_submit_render": {
+        "readOnlyHint": False,
+        "openWorldHint": True,
+        "destructiveHint": True,
+    },
+    "fvs_create_paid_render_quote": {
+        "readOnlyHint": False,
+        "openWorldHint": True,
+        "destructiveHint": False,
+    },
+    "fvs_get_render_status": {
+        "readOnlyHint": True,
+        "openWorldHint": False,
+        "destructiveHint": False,
+    },
+    "fvs_get_paid_render_status": {
+        "readOnlyHint": True,
+        "openWorldHint": False,
+        "destructiveHint": False,
+    },
+    "fvs_cancel_render": {
+        "readOnlyHint": False,
+        "openWorldHint": True,
+        "destructiveHint": True,
+    },
+    "fvs_download_final_video": {
+        "readOnlyHint": False,
+        "openWorldHint": False,
+        "destructiveHint": True,
+    },
+    "fvs_example_render_request": {
+        "readOnlyHint": True,
+        "openWorldHint": False,
+        "destructiveHint": False,
+    },
+}
+
+
 class FakeResponse:
     def __init__(self, payload: dict | bytes):
         self.payload = payload
@@ -330,25 +374,40 @@ def test_chatgpt_app_tools_link_to_widget_template():
         for tool in anyio.run(_list_tools)
     }
 
-    expected_tools = {
-        "fvs_open_chatgpt_app",
-        "fvs_submit_render",
-        "fvs_create_paid_render_quote",
-        "fvs_get_render_status",
-        "fvs_get_paid_render_status",
-        "fvs_cancel_render",
-        "fvs_download_final_video",
-        "fvs_example_render_request",
-    }
+    expected_tools = set(EXPECTED_TOOL_ANNOTATIONS)
     assert expected_tools.issubset(tools.keys())
     for tool_name in expected_tools:
+        annotations = tools[tool_name].annotations
         meta = tools[tool_name].meta or {}
         assert meta["ui"]["resourceUri"] == server.APP_WIDGET_URI
         assert meta["openai/outputTemplate"] == server.APP_WIDGET_URI
         assert meta["openai/widgetAccessible"] is True
+        assert annotations is not None
+        expected_annotations = EXPECTED_TOOL_ANNOTATIONS[tool_name]
+        assert annotations.readOnlyHint is expected_annotations["readOnlyHint"]
+        assert annotations.openWorldHint is expected_annotations["openWorldHint"]
+        assert annotations.destructiveHint is expected_annotations["destructiveHint"]
 
-    assert tools["fvs_submit_render"].annotations is not None
-    assert tools["fvs_submit_render"].annotations.destructiveHint is True
+
+def test_submission_tool_annotations_match_mcp_tools():
+    async def _list_tools():
+        return await server.mcp.list_tools()
+
+    tools = {
+        tool.name: tool
+        for tool in anyio.run(_list_tools)
+    }
+    submission = json.loads((ROOT / "chatgpt-app-submission.json").read_text(encoding="utf-8"))
+
+    assert set(EXPECTED_TOOL_ANNOTATIONS).issubset(submission["tools"].keys())
+    for tool_name, expected_annotations in EXPECTED_TOOL_ANNOTATIONS.items():
+        tool_annotations = tools[tool_name].annotations
+        submission_annotations = submission["tools"][tool_name]["annotations"]
+        assert tool_annotations is not None
+        assert submission_annotations == expected_annotations
+        for hint_name, expected_value in expected_annotations.items():
+            assert submission_annotations[hint_name] is expected_value
+            assert getattr(tool_annotations, hint_name) is expected_value
 
 
 def test_chatgpt_app_widget_resource_has_apps_mime_and_csp():
@@ -444,7 +503,7 @@ def test_download_tool_metadata_describes_side_effects():
     assert download_tool.annotations is not None
     assert download_tool.annotations.readOnlyHint is False
     assert download_tool.annotations.destructiveHint is True
-    assert download_tool.annotations.openWorldHint is True
+    assert download_tool.annotations.openWorldHint is False
     assert "HTTPS signed final_video_url" in properties["final_video_url"]["description"]
     assert "Local filesystem path" in properties["output_path"]["description"]
     assert "Defaults to false" in properties["overwrite"]["description"]

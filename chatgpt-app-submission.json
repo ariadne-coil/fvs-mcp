@@ -47,24 +47,24 @@
     "fvs_get_render_status": {
       "annotations": {
         "readOnlyHint": true,
-        "openWorldHint": true,
+        "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
         "read_only_justification": "Only retrieves the current render status and returned URLs for an existing FVS project.",
-        "open_world_justification": "Reads status from the hosted FVS Agent API outside ChatGPT.",
+        "open_world_justification": "Reads private status for an existing FVS project and does not publish, submit, cancel, charge, or otherwise change public internet state or third-party systems.",
         "destructive_justification": "Does not delete, overwrite, cancel, charge, or start generation."
       }
     },
     "fvs_get_paid_render_status": {
       "annotations": {
         "readOnlyHint": true,
-        "openWorldHint": true,
+        "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
         "read_only_justification": "Only retrieves status and result URLs for a paid render quote.",
-        "open_world_justification": "Reads paid render status from the hosted FVS Agent API outside ChatGPT.",
+        "open_world_justification": "Reads private paid quote/render status and does not publish, submit, cancel, charge, or otherwise change public internet state or third-party systems.",
         "destructive_justification": "Does not delete, overwrite, cancel, charge, or start generation."
       }
     },
@@ -83,12 +83,12 @@
     "fvs_download_final_video": {
       "annotations": {
         "readOnlyHint": false,
-        "openWorldHint": true,
+        "openWorldHint": false,
         "destructiveHint": true
       },
       "justifications": {
         "read_only_justification": "Downloads a signed video URL and writes the video bytes to the MCP server filesystem.",
-        "open_world_justification": "Fetches a supplied HTTPS final video URL outside ChatGPT.",
+        "open_world_justification": "Fetches a user-supplied signed HTTPS final video URL and writes locally; it does not publish, submit, cancel, charge, or otherwise change public internet state or third-party systems.",
         "destructive_justification": "Can replace an existing local file when overwrite is set to true."
       }
     },
