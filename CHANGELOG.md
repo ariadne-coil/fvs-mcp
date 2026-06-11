@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.8
+
+- Remove legacy asset role wording from render tool schemas so shallow scanners only see `assets[].purpose`.
+
 ## 0.1.7
 
 - Advertise the FVS MCP server version in initialize metadata so scanners can invalidate stale tool scans.

@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-MCP_SERVER_VERSION = "0.1.7"
+MCP_SERVER_VERSION = "0.1.8"
 
 try:
     from .client import (
@@ -293,8 +293,7 @@ class RenderAssetPayload(BaseModel):
         description=(
             "Optional guidance for how this asset should be used, such as "
             "character_reference, location_reference, logo_reference, style_reference, "
-            "music_reference, or document_reference. Use this field for asset intent; "
-            "do not send an assets[].role field."
+            "music_reference, or document_reference. Use this field for asset intent."
         ),
     )
 
@@ -769,9 +768,9 @@ def fvs_submit_render(
         Field(
             description=(
                 "Required render request object. Include name. project_mode must be one "
-                "of scene, music, or custom. Use assets[].purpose for asset intent; do "
-                "not send assets[].role. Usually include screenplay, instructions, "
-                "shot_count, duration, and resolution."
+                "of scene, music, or custom. Use assets[].purpose for asset intent. "
+                "Usually include screenplay, instructions, shot_count, duration, and "
+                "resolution."
             )
         ),
     ],
@@ -830,8 +829,8 @@ def fvs_create_paid_render_quote(
             description=(
                 "Required render request object used for the paid quote. Include name. "
                 "project_mode must be one of scene, music, or custom. Use "
-                "assets[].purpose for asset intent; do not send assets[].role. Usually "
-                "include screenplay, instructions, shot_count, duration, and resolution."
+                "assets[].purpose for asset intent. Usually include screenplay, "
+                "instructions, shot_count, duration, and resolution."
             )
         ),
     ],

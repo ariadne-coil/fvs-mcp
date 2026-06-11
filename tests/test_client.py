@@ -356,8 +356,10 @@ def test_mcp_tool_schema_does_not_expose_timeout_knobs():
     assert paid_properties["request"]["description"].startswith("Required render request object")
     assert "project_mode must be one of scene, music, or custom" in submit_properties["request"]["description"]
     assert "project_mode must be one of scene, music, or custom" in paid_properties["request"]["description"]
-    assert "do not send assets[].role" in submit_properties["request"]["description"]
-    assert "do not send assets[].role" in paid_properties["request"]["description"]
+    assert "assets[].purpose" in submit_properties["request"]["description"]
+    assert "assets[].purpose" in paid_properties["request"]["description"]
+    assert "role" not in json.dumps(tools["fvs_submit_render"])
+    assert "role" not in json.dumps(tools["fvs_create_paid_render_quote"])
     assert "RenderRequestPayload" in tools["fvs_submit_render"]["$defs"]
     submit_defs = tools["fvs_submit_render"]["$defs"]
     request_properties = submit_defs["RenderRequestPayload"]["properties"]
@@ -367,11 +369,11 @@ def test_mcp_tool_schema_does_not_expose_timeout_knobs():
     assert request_properties["project_mode"]["enum"] == ["scene", "music", "custom"]
     assert "role" not in asset_properties
     assert "purpose" in asset_properties
-    assert "do not send an assets[].role field" in asset_properties["purpose"]["description"]
+    assert "Use this field for asset intent" in asset_properties["purpose"]["description"]
 
 
 def test_mcp_server_info_uses_package_version():
-    assert server.mcp._mcp_server.version == "0.1.7"
+    assert server.mcp._mcp_server.version == "0.1.8"
 
 
 def test_chatgpt_app_tools_link_to_widget_template():
