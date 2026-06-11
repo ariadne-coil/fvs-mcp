@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.7
+
+- Advertise the FVS MCP server version in initialize metadata so scanners can invalidate stale tool scans.
+- Clarify render request descriptions with `project_mode` enum values and asset `purpose` guidance.
+
 ## 0.1.6
 
 - Align status and download MCP annotations with actual behavior for ChatGPT app review.

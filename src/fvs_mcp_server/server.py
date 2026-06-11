@@ -19,6 +19,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+MCP_SERVER_VERSION = "0.1.7"
+
 try:
     from .client import (
         DEFAULT_BASE_URL,
@@ -194,7 +196,7 @@ SERVER_MANIFEST = {
             "mimeType": "image/png",
         }
     ],
-    "version": "0.1.6",
+    "version": MCP_SERVER_VERSION,
     "chatgptApp": {
         "connectorUrl": "https://mcp.future.video/mcp",
         "widgetResource": APP_WIDGET_URI,
@@ -249,7 +251,7 @@ SERVER_MANIFEST = {
         {
             "registryType": "pypi",
             "identifier": "future-video-studio-mcp",
-            "version": "0.1.6",
+            "version": MCP_SERVER_VERSION,
             "transport": {
                 "type": "stdio",
             },
@@ -291,7 +293,8 @@ class RenderAssetPayload(BaseModel):
         description=(
             "Optional guidance for how this asset should be used, such as "
             "character_reference, location_reference, logo_reference, style_reference, "
-            "music_reference, or document_reference."
+            "music_reference, or document_reference. Use this field for asset intent; "
+            "do not send an assets[].role field."
         ),
     )
 
@@ -386,6 +389,7 @@ mcp = FastMCP(
         allowed_origins=csv_env("FVS_MCP_ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS),
     ),
 )
+mcp._mcp_server.version = MCP_SERVER_VERSION
 
 
 @mcp.resource("fvs://agent-api/reference")
@@ -764,8 +768,10 @@ def fvs_submit_render(
         RenderRequestPayload,
         Field(
             description=(
-                "Required render request object. Include at least name, and usually "
-                "project_mode, screenplay, instructions, shot_count, duration, and resolution."
+                "Required render request object. Include name. project_mode must be one "
+                "of scene, music, or custom. Use assets[].purpose for asset intent; do "
+                "not send assets[].role. Usually include screenplay, instructions, "
+                "shot_count, duration, and resolution."
             )
         ),
     ],
@@ -822,9 +828,10 @@ def fvs_create_paid_render_quote(
         RenderRequestPayload,
         Field(
             description=(
-                "Required render request object used for the paid quote. Include at "
-                "least name, and usually project_mode, screenplay, instructions, "
-                "shot_count, duration, and resolution."
+                "Required render request object used for the paid quote. Include name. "
+                "project_mode must be one of scene, music, or custom. Use "
+                "assets[].purpose for asset intent; do not send assets[].role. Usually "
+                "include screenplay, instructions, shot_count, duration, and resolution."
             )
         ),
     ],

@@ -1,6 +1,6 @@
 [project]
 name = "future-video-studio-mcp"
-version = "0.1.6"
+version = "0.1.7"
 description = "MCP server for creating Future Video Studio renders through the FVS Agent API."
 readme = "README.md"
 requires-python = ">=3.11"
